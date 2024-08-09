@@ -5,4 +5,4 @@ uvicorn
 gunicorn
 tensorflow
 Pillow
-multipart
+python-multipart
