@@ -5,3 +5,4 @@ uvicorn
 gunicorn
 tensorflow
 Pillow
+multipart
