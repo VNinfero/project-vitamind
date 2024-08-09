@@ -1,8 +1,9 @@
 fastapi
 pydantic
 starlette
-uvicorn
+uvicorn[standard]
 gunicorn
 tensorflow
 Pillow
 python-multipart
+
