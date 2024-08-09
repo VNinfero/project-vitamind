@@ -1,0 +1,6 @@
+fastapi
+pydantic
+starlette
+uvicorn
+gunicorn
+tensorflow
