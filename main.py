@@ -1,8 +1,10 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from pydantic import BaseModel
 import numpy as np
 import tensorflow as tf
 from io import BytesIO
 from PIL import Image
+import requests
 import uvicorn
 
 app = FastAPI()
@@ -15,8 +17,8 @@ except Exception as e:
     print(f"Error loading model: {e}")
 
 # Get input and output tensors
-input_details = interpreter.get_input_details()[0]  # Access the first (and usually only) input tensor
-output_details = interpreter.get_output_details()[0]  # Access the first (and usually only) output tensor
+input_details = interpreter.get_input_details()[0]
+output_details = interpreter.get_output_details()[0]
 
 # Define optimal thresholds for each class
 optimal_thresholds = {
@@ -35,24 +37,18 @@ def preprocess_image(image_bytes):
         image = image / 255.0  # Normalize to [0, 1]
         return image
     except Exception as e:
-        print(f"Error preprocessing image: {e}")
-        return None
+        raise HTTPException(status_code=400, detail=f"Error processing image: {e}")
 
 # Function to get predictions
 def get_prediction(image_bytes):
     image = preprocess_image(image_bytes)
-    if image is None:
-        raise HTTPException(status_code=400, detail="Error processing image")
-    
     try:
-        interpreter.set_tensor(input_details['index'], image)  # Correct way to access the index
+        interpreter.set_tensor(input_details['index'], image)
         interpreter.invoke()
         output_data = interpreter.get_tensor(output_details['index'])
-        print("Raw Model Output:", output_data)  # Debugging
         return output_data[0]
     except Exception as e:
-        print(f"Error during prediction: {e}")
-        raise HTTPException(status_code=500, detail="Prediction error")
+        raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
 
 # Function to classify based on thresholds
 def classify(predictions):
@@ -62,23 +58,22 @@ def classify(predictions):
     max_score = -1
     
     for i, score in enumerate(predictions):
-        class_label = class_names[i]
-        print(f"Class: {class_label}, Score: {score}, Threshold: {optimal_thresholds[i]}")  # Debugging
         if score >= optimal_thresholds[i]:
-            results[class_label] = score
+            results[class_names[i]] = score
             if score > max_score:
                 max_score = score
-                max_class = class_label
+                max_class = class_names[i]
         else:
-            results[class_label] = 0
+            results[class_names[i]] = 0
     
     if max_class:
         return f"You have {max_class}"
     else:
         return "No clear diagnosis"
 
-@app.post("/predict/")
-async def predict(file: UploadFile = File(...)):
+# Endpoint to handle file uploads
+@app.post("/predict/file/")
+async def predict_file(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
         predictions = get_prediction(image_bytes)
@@ -87,7 +82,27 @@ async def predict(file: UploadFile = File(...)):
     except HTTPException as e:
         raise e
     except Exception as e:
-        print(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# Model to validate URL input
+class ImageURL(BaseModel):
+    url: str
 
+# Endpoint to handle image URL
+@app.post("/predict/url/")
+async def predict_url(image_url: ImageURL):
+    try:
+        response = requests.get(image_url.url)
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Could not download image from URL")
+        image_bytes = response.content
+        predictions = get_prediction(image_bytes)
+        result_message = classify(predictions)
+        return {"message": result_message}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
