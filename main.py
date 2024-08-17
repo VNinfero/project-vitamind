@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware  # Import CORSMiddleware
 from pydantic import BaseModel
 import numpy as np
 import tensorflow as tf
@@ -8,6 +9,15 @@ import requests
 import uvicorn
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins; you can specify certain domains if needed
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods (POST, GET, OPTIONS, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Load TFLite model and allocate tensors
 try:
@@ -104,4 +114,7 @@ async def predict_url(image_url: ImageURL):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# Run the server
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
