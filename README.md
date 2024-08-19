@@ -1,7 +1,7 @@
 # vitamind
 
 
-#creted by Vinod Arava , Nagababu Arava
+#created by Vinod Arava , Nagababu Arava
 
 
 Apk Link for android : https://drive.google.com/file/d/14Htff1PSiGokyqz0FOA-qgzMTP0oX5l4/view?usp=drivesdk
